@@ -99,3 +99,11 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc %{_javadocdir}/%{name}
 
+
+
+%changelog
+* Sun Nov 27 2011 Guilherme Moro <guilherme@mandriva.com> 3-8
++ Revision: 734055
+- rebuild
+- imported package json
+
