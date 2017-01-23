@@ -41,6 +41,7 @@ BuildArch:  noarch
 Source0:    http://github.com/stleary/%{oname}/releases/%{oname}-%{version}.tar.gz
 Source1:    pom.xml
 BuildRequires:  jpackage-utils
+BuildRequires:	maven-local
 BuildRequires:  java-devel
 BuildRequires:  zip
 
