@@ -1,3 +1,4 @@
+%{?_javapackages_macros:%_javapackages_macros}
 # Copyright (c) 2000-2009, JPackage Project
 # All rights reserved.
 #
@@ -27,17 +28,18 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
+%define oname JSON-java
 
 Name:       json
 Summary:    JavaScript Object Notation support in Java
 URL:        http://www.json.org/java/index.html
-Version:    3
-Release:    9
+Version:    20160810
+Release:    1
 License:    ASL 2.0
 Group:      Development/Java
 BuildArch:  noarch
-Source0:    http://www.json.org/java/apache.zip
-Source1:    %{name}-MANIFEST.MF
+Source0:    http://github.com/stleary/%{oname}/releases/%{oname}-%{version}.tar.gz
+Source1:    pom.xml
 BuildRequires:  jpackage-utils
 BuildRequires:  java-devel
 BuildRequires:  zip
@@ -60,44 +62,22 @@ Requires:   jpackage-utils
 API docs for %{name}.
 
 %prep
-%setup -q -c -n %{name}-%{version}
-mkdir -p src/org
-mv apache src/org
-
+%setup -q -c -n %{oname}-%{version}
+mv %{oname}-%{version} src
+cp %SOURCE1 .
 %build
-export JAVA_HOME=%{_jvmdir}/java
-mkdir -p target/classes
-$JAVA_HOME/bin/javac -d target/classes $(find src -name "*.java")
-$JAVA_HOME/bin/jar cf target/%{name}.jar -C target/classes org
-mkdir -p target/site/apidocs
-$JAVA_HOME/bin/javadoc -d target/site/apidocs $(find src -name "*.java")
 
-# inject OSGi manifests
-mkdir -p META-INF
-cp -p %{SOURCE1} META-INF/MANIFEST.MF
-touch META-INF/MANIFEST.MF
-zip -u target/%{name}.jar META-INF/MANIFEST.MF 
+%mvn_build
 
 %install
-rm -rf $RPM_BUILD_ROOT
-# jars
-install -d -m 755 $RPM_BUILD_ROOT%{_javadir}
-install -m 644 target/%{name}.jar $RPM_BUILD_ROOT%{_javadir}/%{name}.jar
-
-# javadoc
-install -d -m 755 $RPM_BUILD_ROOT%{_javadocdir}/%{name}
-cp -pr target/site/apidocs/* $RPM_BUILD_ROOT%{_javadocdir}/%{name}
+%mvn_install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
-%files
-%defattr(-,root,root,-)
-%{_javadir}/*
+%files -f .mfiles
 
-%files javadoc
-%defattr(-,root,root)
-%doc %{_javadocdir}/%{name}
+%files javadoc -f .mfiles-javadoc
 
 
 

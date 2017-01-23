@@ -1,9 +1,0 @@
-Manifest-Version: 1.0
-Bundle-Vendor: Eclipse.org
-Bundle-Localization: bundle
-Bundle-RequiredExecutionEnvironment: CDC-1.1/Foundation-1.1,J2SE-1.2
-Bundle-Name: JSON Implementation for Java
-Bundle-SymbolicName: org.json
-Export-Package: org.json
-Bundle-Version: 1.0.0.v201003050614
-Bundle-ManifestVersion: 2
