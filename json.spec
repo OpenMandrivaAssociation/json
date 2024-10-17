@@ -32,7 +32,7 @@
 
 Name:       json
 Summary:    JavaScript Object Notation support in Java
-URL:        http://www.json.org/java/index.html
+URL:        https://www.json.org/java/index.html
 Version:    20160810
 Release:    1
 License:    ASL 2.0
