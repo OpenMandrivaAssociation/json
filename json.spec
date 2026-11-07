@@ -1,90 +1,109 @@
-%{?_javapackages_macros:%_javapackages_macros}
-# Copyright (c) 2000-2009, JPackage Project
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-#
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the
-#    distribution.
-# 3. Neither the name of the JPackage Project nor the names of its
-#    contributors may be used to endorse or promote products derived
-#    from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-#
-%define oname JSON-java
+Name:		json
+Version:	20260814
+Release:	1
+Summary:	JSON encoders and decoders in Java
+Group:		Development/Java
+License:	Public Domain
+URL:		https://github.com/stleary/JSON-java
+Source0:	https://github.com/stleary/JSON-java/archive/refs/tags/%{version}.tar.gz#/JSON-java-%{version}.tar.gz
 
-Name:       json
-Summary:    JavaScript Object Notation support in Java
-URL:        https://www.json.org/java/index.html
-Version:    20160810
-Release:    1
-License:    ASL 2.0
-Group:      Development/Java
-BuildArch:  noarch
-Source0:    http://github.com/stleary/%{oname}/releases/%{oname}-%{version}.tar.gz
-Source1:    pom.xml
-BuildRequires:  jpackage-utils
-BuildRequires:	maven-local
-BuildRequires:  java-devel
-BuildRequires:  zip
+BuildArch:	noarch
+BuildRequires:	python
+# Literal, so the first rpmbuild -bs records them before sysjar is installed.
+BuildRequires:	maven
+BuildRequires:	java-current-devel
+BuildSystem:	maven
+
+Obsoletes:	%{name}-javadoc < %{version}
 
 %description
-Java support for the JSON (JavaScript Object Notation) lightweight
-data-interchange format.  It is based on a subset of the JavaScript
-Programming Language, Standard ECMA-262 3rd Edition - December 1999.
-JSON is a text format that is completely language independent but uses
-conventions that are familiar to programmers of the C-family of
-languages including C, C++, C#, Java, JavaScript, Perl, Python, and many
-others.
-
-%package javadoc
-Summary:    Javadoc for %{name}
-Group:      Development/Java
-Requires:   jpackage-utils
-
-%description javadoc
-API docs for %{name}.
+Reference implementation of JSON for Java. 20260814 is the current
+release. The Java module is org.json. Tests are skipped.
 
 %prep
-%setup -q -c -n %{oname}-%{version}
-mv %{oname}-%{version} src
-cp %SOURCE1 .
-%build
+%autosetup -n JSON-java-%{version}
+# Upstream packaging is bundle. The bundle, moditect and publishing
+# plugins are not installed. The test dependencies are not needed.
+python - <<'PY'
+import xml.etree.ElementTree as ET
+from pathlib import Path
 
-%mvn_build
+NS = "http://maven.apache.org/POM/4.0.0"
+ET.register_namespace("", NS)
+ET.register_namespace("xsi", "http://www.w3.org/2001/XMLSchema-instance")
 
-%install
-%mvn_install
+def local(tag):
+    return tag.rsplit("}", 1)[-1]
 
-%clean
-rm -rf $RPM_BUILD_ROOT
+def artifact_of(elem):
+    for item in elem:
+        if local(item.tag) == "artifactId":
+            return (item.text or "").strip()
+    return ""
+
+def child_text(elem, name):
+    for item in elem:
+        if local(item.tag) == name:
+            return (item.text or "").strip()
+    return ""
+
+drop_plugins = {
+    "maven-bundle-plugin",
+    "maven-source-plugin",
+    "maven-javadoc-plugin",
+    "maven-gpg-plugin",
+    "moditect-maven-plugin",
+    "central-publishing-maven-plugin",
+    "replacer",
+}
+tree = ET.parse("pom.xml")
+root = tree.getroot()
+packaging = None
+for child in list(root):
+    if local(child.tag) == "packaging":
+        packaging = child
+if packaging is None or (packaging.text or "").strip() != "bundle":
+    raise SystemExit("packaging was not bundle")
+packaging.text = "jar"
+removed = []
+for parent in list(root.iter()):
+    for child in list(parent):
+        kind = local(child.tag)
+        if kind == "plugin" and artifact_of(child) in drop_plugins:
+            parent.remove(child)
+            removed.append(artifact_of(child))
+        elif kind == "dependency" and child_text(child, "scope") == "test":
+            parent.remove(child)
+            removed.append(artifact_of(child))
+missing = drop_plugins - set(removed)
+if missing:
+    raise SystemExit("not removed " + " ".join(sorted(missing)))
+tree.write("pom.xml", encoding="UTF-8", xml_declaration=True)
+text = Path("pom.xml").read_text(encoding="utf-8")
+if "<packaging>jar</packaging>" not in text:
+    raise SystemExit("packaging jar missing")
+for art in sorted(drop_plugins):
+    if "<artifactId>" + art + "</artifactId>" in text:
+        raise SystemExit("survived " + art)
+if "<scope>test</scope>" in text:
+    raise SystemExit("test dependency survived")
+if "<source>1.8</source>" not in text or "<target>1.8</target>" not in text:
+    raise SystemExit("compiler level missing")
+PY
+
+%build -a
+cat > target/module-info.java << 'EOF'
+module org.json {
+    exports org.json;
+}
+EOF
+javac --release 9 \
+	--patch-module org.json=target/classes \
+	-d target/classes \
+	target/module-info.java
+test -s target/classes/module-info.class
+jar uf target/json-%{version}.jar -C target/classes module-info.class
+java --module-path target/json-%{version}.jar --describe-module org.json | grep -q '^org.json'
 
 %files -f .mfiles
-
-%files javadoc -f .mfiles-javadoc
-
-
-
-%changelog
-* Sun Nov 27 2011 Guilherme Moro <guilherme@mandriva.com> 3-8
-+ Revision: 734055
-- rebuild
-- imported package json
-
+%doc LICENSE README.md

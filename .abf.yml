@@ -1,2 +1,4 @@
-sources:
+removed_sources:
   JSON-java-20160810.tar.gz: ca5c834d79e6dd3bd1632be281f155dca4a9a7f1
+sources:
+  JSON-java-20260814.tar.gz: 61deeae767a3ab5ecff659dd69402f7da4cb2ef1
