@@ -1,6 +1,6 @@
 Name:		json
 Version:	20260814
-Release:	1
+Release:	2
 Summary:	JSON encoders and decoders in Java
 Group:		Development/Java
 License:	Public Domain
@@ -104,6 +104,28 @@ javac --release 9 \
 test -s target/classes/module-info.class
 jar uf target/json-%{version}.jar -C target/classes module-info.class
 java --module-path target/json-%{version}.jar --describe-module org.json | grep -q '^org.json'
+
+%check -a
+mkdir -p chk
+cat > chk/JsonCheck.java << 'EOF'
+import org.json.JSONObject;
+
+public class JsonCheck {
+	public static void main(String[] args) {
+		JSONObject obj = new JSONObject("{\"n\":42}");
+		int n = obj.getInt("n");
+		if (n != 42) {
+			throw new RuntimeException(String.valueOf(n));
+		}
+		System.out.println("json_ok %{version} " + n);
+	}
+}
+EOF
+test -s target/json-%{version}.jar
+javac -cp target/json-%{version}.jar -d chk chk/JsonCheck.java
+java -cp chk:target/json-%{version}.jar JsonCheck > chk/out.txt
+cat chk/out.txt
+grep -q '^json_ok %{version} 42$' chk/out.txt
 
 %files -f .mfiles
 %doc LICENSE README.md
